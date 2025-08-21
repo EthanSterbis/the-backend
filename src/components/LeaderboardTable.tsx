@@ -2,12 +2,12 @@
 
 import * as React from "react";
 import {
-  ColumnDef,
+  useReactTable,
   getCoreRowModel,
   getSortedRowModel,
-  SortingState,
-  useReactTable,
   flexRender,
+  type ColumnDef,
+  type SortingState,
 } from "@tanstack/react-table";
 
 export type TeamRow = {
@@ -20,17 +20,40 @@ export type TeamRow = {
   plays: number;
 };
 
-const columns: ColumnDef<TeamRow>[] = [
-  { accessorKey: "posteam", header: "Team" },
-  { accessorKey: "epa", header: "EPA/play", cell: c => (c.getValue<number>() ?? 0).toFixed(3) },
-  { accessorKey: "success_rate", header: "Success %", cell: c => `${((c.getValue<number>() ?? 0) * 100).toFixed(1)}%` },
-  { accessorKey: "epa_pass", header: "EPA/pass", cell: c => (c.getValue<number>() ?? 0).toFixed(3) },
-  { accessorKey: "epa_rush", header: "EPA/rush", cell: c => (c.getValue<number>() ?? 0).toFixed(3) },
-  { accessorKey: "plays", header: "Plays" },
-];
-
 export default function LeaderboardTable({ rows }: { rows: TeamRow[] }) {
-  const [sorting, setSorting] = React.useState<SortingState>([{ id: "epa", desc: true }]);
+  const [sorting, setSorting] = React.useState<SortingState>([
+    { id: "epa", desc: true },
+  ]);
+
+  const columns = React.useMemo<ColumnDef<TeamRow>[]>(
+    () => [
+      { accessorKey: "posteam", header: "Team" },
+      { accessorKey: "season", header: "Season" },
+      { accessorKey: "plays", header: "Plays" },
+      {
+        accessorKey: "success_rate",
+        header: "SR",
+        cell: (info) => info.getValue<number>().toFixed(3),
+      },
+      {
+        accessorKey: "epa",
+        header: "EPA/play",
+        cell: (info) => info.getValue<number>().toFixed(3),
+      },
+      {
+        accessorKey: "epa_pass",
+        header: "EPA pass",
+        cell: (info) => info.getValue<number>().toFixed(3),
+      },
+      {
+        accessorKey: "epa_rush",
+        header: "EPA rush",
+        cell: (info) => info.getValue<number>().toFixed(3),
+      },
+    ],
+    []
+  );
+
   const table = useReactTable({
     data: rows,
     columns,
@@ -41,35 +64,36 @@ export default function LeaderboardTable({ rows }: { rows: TeamRow[] }) {
   });
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800">
-      <table className="w-full text-sm">
-        <thead className="bg-neutral-50 dark:bg-neutral-900">
-          {table.getHeaderGroups().map(hg => (
+    <div className="overflow-x-auto">
+      <table className="min-w-full text-sm">
+        <thead>
+          {table.getHeaderGroups().map((hg) => (
             <tr key={hg.id}>
-              {hg.headers.map(h => (
+              {hg.headers.map((h) => (
                 <th
                   key={h.id}
-                  className="px-3 py-2 text-left font-semibold cursor-pointer select-none"
                   onClick={h.column.getToggleSortingHandler()}
-                  aria-sort={h.column.getIsSorted() ? (h.column.getIsSorted() + "-ending") as any : "none"}
+                  className="px-2 py-1 text-left cursor-pointer select-none"
                 >
-                  <div className="flex items-center gap-1">
-                    {flexRender(h.column.columnDef.header, h.getContext())}
-                    <span className="opacity-60">
-                      {h.column.getIsSorted() === "asc" ? "▲" : h.column.getIsSorted() === "desc" ? "▼" : ""}
-                    </span>
-                  </div>
+                  {flexRender(h.column.columnDef.header, h.getContext())}
+                  {{
+                    asc: " ▲",
+                    desc: " ▼",
+                  }[h.column.getIsSorted() as "asc" | "desc"] ?? null}
                 </th>
               ))}
             </tr>
           ))}
         </thead>
         <tbody>
-          {table.getRowModel().rows.map(r => (
-            <tr key={r.id} className="odd:bg-white even:bg-neutral-50 dark:odd:bg-neutral-950 dark:even:bg-neutral-900">
-              {r.getVisibleCells().map(c => (
-                <td key={c.id} className="px-3 py-2">
-                  {flexRender(c.column.columnDef.cell, c.getContext())}
+          {table.getRowModel().rows.map((r) => (
+            <tr key={r.id} className="odd:bg-neutral-50">
+              {r.getVisibleCells().map((c) => (
+                <td key={c.id} className="px-2 py-1">
+                  {flexRender(
+                    c.column.columnDef.cell ?? c.column.columnDef.header,
+                    c.getContext()
+                  )}
                 </td>
               ))}
             </tr>
