@@ -1,17 +1,30 @@
+import path from "node:path";
+import Database from "better-sqlite3";
 import { NextResponse } from "next/server";
+
+const dbPath = path.join(process.cwd(), "data", "backend.sqlite");
+const db = new Database(dbPath, { readonly: true });
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const season = Number(url.searchParams.get("season") ?? 2024);
+  const team = (url.searchParams.get("team") ?? "").trim().toUpperCase();
 
-  // temporary sample data (we'll replace with SQLite soon)
-  const data = [
-    { posteam: "BUF", season, epa: 0.12, epa_pass: 0.20, epa_rush: 0.05, success_rate: 0.49, plays: 1001 },
-    { posteam: "BAL", season, epa: 0.21, epa_pass: 0.24, epa_rush: 0.17, success_rate: 0.51, plays: 1000 },
-    { posteam: "DET", season, epa: 0.15, epa_pass: 0.19, epa_rush: 0.09, success_rate: 0.50, plays: 951 },
-  ];
+  if (!Number.isInteger(season) || season < 1999 || season > 2100) {
+    return NextResponse.json({ error: "Invalid season" }, { status: 400 });
+  }
 
-  const res = NextResponse.json({ data });
+  const stmt = db.prepare(`
+    SELECT posteam, season, epa, epa_pass, epa_rush, success_rate, plays
+    FROM team_offense
+    WHERE season = ?
+      AND (? = '' OR posteam = ?)
+    ORDER BY epa DESC
+  `);
+
+  const rows = stmt.all(season, team, team);
+
+  const res = NextResponse.json({ data: rows });
   res.headers.set("Cache-Control", "public, s-maxage=300, stale-while-revalidate=3600");
   return res;
 }

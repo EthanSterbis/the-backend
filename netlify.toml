@@ -1,0 +1,11 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[functions]
+  included_files = ["data/backend.sqlite"]
+  external_node_modules = ["better-sqlite3"]
+  node_bundler = "esbuild"
