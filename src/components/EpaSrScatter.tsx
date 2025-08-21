@@ -52,7 +52,7 @@ export default function EpaSrScatter({
     },
   ] as unknown as import("plotly.js").Data[];
 
-  const layout: import("plotly.js").Layout = {
+  const layout: Partial<import("plotly.js").Layout> = {
     title: { text: title ?? "EPA vs Success Rate" },
     xaxis: { title: { text: "Success Rate" }, tickformat: ",.0%", hoverformat: ".1%" },
     yaxis: { title: { text: "EPA / play" }, tickformat: ".3f" },

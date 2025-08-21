@@ -90,10 +90,8 @@ export default function LeaderboardTable({ rows }: { rows: TeamRow[] }) {
             <tr key={r.id} className="odd:bg-neutral-50">
               {r.getVisibleCells().map((c) => (
                 <td key={c.id} className="px-2 py-1">
-                  {flexRender(
-                    c.column.columnDef.cell ?? c.column.columnDef.header,
-                    c.getContext()
-                  )}
+                  {flexRender(c.column.columnDef.cell, c.getContext()) ??
+                    String(c.getValue() ?? "")}
                 </td>
               ))}
             </tr>
