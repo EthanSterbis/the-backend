@@ -1,32 +1,57 @@
+// src/app/api/splits/route.ts
 export const runtime = "nodejs";
 
-import path from "node:path";
-import Database from "better-sqlite3";
 import { NextResponse } from "next/server";
+import Database from "better-sqlite3";
+import path from "node:path";
+import { existsSync } from "node:fs";
 
-const dbPath = path.join(process.cwd(), "data", "backend.sqlite");
-const db = new Database(dbPath, { readonly: true });
+/** Resolve the bundled SQLite file both locally and in Netlify functions */
+function resolveDbPath(): string {
+  const roots = [
+    process.cwd(),
+    __dirname,
+    process.env.LAMBDA_TASK_ROOT || "",
+    "/var/task",
+  ].filter(Boolean);
 
-export async function GET(req: Request) {
-  const url = new URL(req.url);
-  const season = Number(url.searchParams.get("season") ?? 2024);
-  const team = (url.searchParams.get("team") ?? "").trim().toUpperCase();
-
-  if (!Number.isInteger(season) || season < 1999 || season > 2100) {
-    return NextResponse.json({ error: "Invalid season" }, { status: 400 });
+  const candidates = new Set<string>();
+  for (const r of roots) {
+    candidates.add(path.join(r, "data", "backend.sqlite"));
+    candidates.add(path.join(r, "backend.sqlite")); // extra fallback
+    candidates.add(path.join(r, ".netlify", "functions-internal", "data", "backend.sqlite"));
   }
 
-  const stmt = db.prepare(`
-    SELECT posteam, season, epa, epa_pass, epa_rush, success_rate, plays
-    FROM team_offense
-    WHERE season = ?
-      AND (? = '' OR posteam = ?)
-    ORDER BY epa DESC
-  `);
+  for (const p of candidates) if (existsSync(p)) return p;
+  throw new Error("backend.sqlite not found. Tried: " + [...candidates].join(" | "));
+}
 
-  const rows = stmt.all(season, team, team);
+export async function GET(req: Request) {
+  try {
+    const url = new URL(req.url);
+    const season = Number(url.searchParams.get("season") ?? "2024");
+    const team = url.searchParams.get("team") ?? undefined;
 
-  const res = NextResponse.json({ data: rows });
-  res.headers.set("Cache-Control", "public, s-maxage=300, stale-while-revalidate=3600");
-  return res;
+    const db = new Database(resolveDbPath(), { readonly: true });
+    try {
+      const sql = `
+        SELECT posteam, season, epa, epa_pass, epa_rush, success_rate, plays
+        FROM team_offense
+        WHERE season = ? ${team ? "AND posteam = ?" : ""}
+        ORDER BY epa DESC
+      `;
+      const stmt = db.prepare(sql.trim());
+      const rows = team ? stmt.all(season, team) : stmt.all(season);
+
+      const res = NextResponse.json({ data: rows });
+      res.headers.set("Cache-Control", "public, s-maxage=300, stale-while-revalidate=3600");
+      return res;
+    } finally {
+      db.close();
+    }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("API /api/splits error:", message);
+    return NextResponse.json({ error: "Internal Error" }, { status: 500 });
+  }
 }

@@ -7,7 +7,7 @@ import { headers } from "next/headers";
 
 /** Build an absolute base URL at request time (works locally + Netlify) */
 async function getBaseUrl(): Promise<string> {
-  const h = await headers(); // <-- await to satisfy your TS types
+  const h = await headers(); // headers() is async in your setup
   const host =
     h.get("x-forwarded-host") ??
     h.get("host") ??
@@ -25,7 +25,9 @@ async function getBaseUrl(): Promise<string> {
 
 async function getData(season: number): Promise<TeamRow[]> {
   const base = await getBaseUrl();
-  const res = await fetch(`${base}/api/splits?season=${season}`, { cache: "no-store" });
+  const res = await fetch(`${base}/api/splits?season=${season}`, {
+    cache: "no-store",
+  });
   if (!res.ok) throw new Error(`Failed to load splits (${res.status})`);
   const json = (await res.json()) as { data: TeamRow[] };
   return json.data ?? [];
@@ -33,7 +35,14 @@ async function getData(season: number): Promise<TeamRow[]> {
 
 export default async function Home() {
   const season = 2024;
-  const rows = await getData(season);
+
+  // Guard so production doesn't hard-crash if the API fails
+  let rows: TeamRow[] = [];
+  try {
+    rows = await getData(season);
+  } catch {
+    rows = [];
+  }
 
   return (
     <main className="mx-auto max-w-5xl p-6 space-y-6">
@@ -41,6 +50,7 @@ export default async function Home() {
       <p className="text-sm text-neutral-500">
         Sortable leaderboard and EPA vs Success% (SQLite → /api/splits).
       </p>
+
       <LeaderboardTable rows={rows} />
       <EpaSrScatter rows={rows} title={`EPA vs Success% (${season})`} />
     </main>
