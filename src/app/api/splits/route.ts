@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+
 import path from "node:path";
 import Database from "better-sqlite3";
 import { NextResponse } from "next/server";
